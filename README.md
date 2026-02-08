@@ -168,12 +168,17 @@ lazyauth/
 You can test the authentication flow using the included web interface or via API calls:
 
 ```bash
-# Start the server
+# Run the automated tests
+python test_auth.py
+
+# Start the server for manual testing
 python main.py
 
 # Open browser
 open http://localhost:8000
 ```
+
+See [EXAMPLES.md](EXAMPLES.md) for detailed usage examples and integration guides.
 
 ## Contributing
 
