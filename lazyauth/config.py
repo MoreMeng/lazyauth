@@ -3,6 +3,7 @@ Configuration settings for LazyAuth
 """
 
 import os
+import warnings
 from typing import Optional
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
@@ -32,6 +33,17 @@ class Settings(BaseSettings):
     
     class Config:
         env_file = ".env"
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Warn if using default secret key
+        if self.jwt_secret_key == "default-secret-key-change-in-production":
+            warnings.warn(
+                "Using default JWT secret key! This is insecure for production. "
+                "Please set JWT_SECRET_KEY in your .env file.",
+                UserWarning,
+                stacklevel=2
+            )
 
 
 settings = Settings()

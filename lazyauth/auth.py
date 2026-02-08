@@ -3,7 +3,7 @@ OAuth2 authentication implementation
 """
 
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 from urllib.parse import urlencode
 
@@ -19,13 +19,25 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 
 # In-memory session storage (for demo purposes)
 # In production, use Redis or similar
-sessions: Dict[str, str] = {}
+# Sessions expire after 10 minutes
+sessions: Dict[str, tuple[str, datetime]] = {}
+
+
+def cleanup_expired_sessions():
+    """Remove expired sessions from memory"""
+    current_time = datetime.now(timezone.utc)
+    expired = [
+        state for state, (status, timestamp) in sessions.items()
+        if (current_time - timestamp).total_seconds() > 600  # 10 minutes
+    ]
+    for state in expired:
+        del sessions[state]
 
 
 def create_jwt_token(user: User) -> Token:
     """Create JWT token for authenticated user"""
     expires_delta = timedelta(minutes=settings.jwt_expiration_minutes)
-    expire = datetime.utcnow() + expires_delta
+    expire = datetime.now(timezone.utc) + expires_delta
     
     to_encode = {
         "sub": user.id,
@@ -94,9 +106,12 @@ async def get_current_user(request: Request) -> User:
 @router.get("/login")
 async def login():
     """Initiate OAuth2 login flow"""
+    # Clean up expired sessions
+    cleanup_expired_sessions()
+    
     # Generate random state for CSRF protection
     state = secrets.token_urlsafe(32)
-    sessions[state] = "pending"
+    sessions[state] = ("pending", datetime.now(timezone.utc))
     
     # Build authorization URL
     params = {
@@ -175,7 +190,8 @@ async def auth_callback(code: str, state: str, response: Response):
         value=token.access_token,
         httponly=True,
         max_age=token.expires_in,
-        samesite="lax"
+        samesite="lax",
+        secure=True  # Only send over HTTPS
     )
     
     return {
